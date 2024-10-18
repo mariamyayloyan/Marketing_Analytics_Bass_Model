@@ -1,0 +1,117 @@
+---
+title: "HW1_MariamYayloyan"
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+date: "2024-10-16"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(readxl)
+library(stringr)
+library(dplyr)
+library(ggplot2)
+library(diffusion)
+library(ggpubr)
+library(minpack.lm)
+library(zoo)
+```
+
+The innovation I chose is Duolingo Music, which is a section added in Duolingo alongside the language and math sections, and as my look-alike innovation I chose Duolingo Language section. Both Duolingo's language section and the proposed Duolingo Music section prioritize interactive learning and user engagement through gamification. Language courses employ exercises that cover vocabulary, grammar, and pronunciation, providing immediate feedback to learners, which promotes retention and fluency. Similarly, Duolingo Music would focus on teaching musical concepts, such as notes, rhythms, and chords, through engaging activities like listening exercises, quizzes, and performance tasks. Duolingo’s language courses utilize advanced algorithms to personalize the learning experience based on individual performance, ensuring users receive tailored content that meets their needs. This technology is similarly applied in Duolingo Music to customize lessons according to users' musical interests and skill levels. While there are other music learning platforms available, they often lack the same level of accessibility and gamified approach that Duolingo employs for languages, that's why I decided to take Duolingo language courses as my look-alike product. 
+The familiarity of users with Duolingo’s technology for language learning positions the music course as a natural extension of the platform, as it harnesses the same technical infrastructure and user interface design that learners already appreciate. Duolingo has already established a strong foothold in the language learning market, gaining millions of active users globally. This established user base presents an opportunity for Duolingo Music to tap into an existing audience interested in self-improvement and learning. By comparing the two, it becomes clear that Duolingo Music can leverage the brand recognition and market presence of Duolingo's language courses to attract users who are already engaged with the platform, thereby enhancing its impact in the education space. 
+I have taken the data of quarterly active users, who are active on the language section of Duolingo, from Statista. The numbers of users are given in millions.
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+his_data <- read_excel("duolingo.xlsx", sheet = "Data")
+his_data <- his_data[-c(1, 2), ]
+colnames(his_data) <- c("year_quarter", "users")
+his_data$year_quarter <- as.yearqtr(his_data$year_quarter)
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(his_data, aes(x = year_quarter, y = users)) +
+  geom_bar(stat = 'identity') +
+  labs(title = 'Global quarterly number of Duolingo language course users (in Millions)', x = 'Year-Qtr', y = 'Number of Users') +
+  theme(plot.title = element_text(hjust = 0.5))
+```
+
+We define the Bass Model's f(t) and F(t) functions, where f(t) is the fraction of total market that adopts at time t, F(t) is the fraction of total market that has adopted up to and including time t, p is the coefficient of innovation, q is the coefficient of imitation and M is the market potential. 
+
+```{r}
+bass.f <- function(t,p,q){((p+q)^2/p)*exp(-(p+q)*t) / (1+(q/p)*exp(-(p+q)*t))^2}
+
+bass.F <- function(t,p,q){(1-exp(-(p+q)*t)) / (1+(q/p)*exp(-(p+q)*t))}
+```
+
+```{r message=FALSE, warning=FALSE}
+diff_m <- diffusion(his_data$users)
+p<-round(diff_m$w,4)[1]
+q<-round(diff_m$w,4)[2]
+m<-round(diff_m$w,4)[3]
+diff_m
+```
+
+We got our M = 590.1409, p = 0.0095, q = 0.1602 and we can use it to predict the diffusion path of our innovation based on our look-alike product, we plot f(t) and F(t) next to the quarterly number of active Duolingo users.
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+f_t <- ggplot(data.frame(t = c(1:16)), aes(t)) +
+ stat_function(fun = bass.f, args = c(p = 0.0095, q = 0.1602)) +
+ labs(title = 'f(t)')
+
+users_plot <- ggplot(his_data, aes(x = year_quarter, y = users)) +
+  geom_bar(stat = 'identity') +
+  labs(title ='Global quarterly number of users', x = 'Year_Qtr', y = 'Number of Users')
+
+users_plot <- users_plot + theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+ggarrange(f_t, users_plot)
+```
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+F_t <- ggplot(data.frame(t = c(1:16)), aes(t)) +
+ stat_function(fun = bass.F, args = c(p = 0.0095, q = 0.1602)) +
+ labs(title = 'F(t)')
+ggarrange(F_t, users_plot)
+```
+
+Since the data of our look-alike is global, we can make global predictions for our innovation, and since it's the same platform, we can take the same market size M that we got above for the language section.
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+his_data$pred_users <- bass.f(1:16, p =  0.0095, q = 0.1602)*590.1409
+
+ggplot(his_data,aes(x = year_quarter, y = users)) +
+  geom_bar(stat = 'identity') +
+  geom_point(mapping = aes(x = year_quarter, y = pred_users), color = 'red') 
+```
+
+We can also estimate the number of new adopters for the next 16 quarters (2 years).
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+quarters <- 1:16
+new_adopters <- diff(c(0,his_data$pred_users))
+results <- data.frame(Quarter = quarters, 
+                      Cumulative_Adopters = his_data$pred_users, 
+                      New_Adopters = new_adopters)
+results
+```
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(data = results, aes(x = Quarter, y = New_Adopters)) +
+  geom_line(color = "blue") +  
+  geom_point(color = "blue") +  
+  labs(title = "New Adopters Over Time",
+       x = "Time in Quarters",
+       y = "New Adopters") +
+  theme_minimal() 
+```
+
+\newpage
+
+**References**
+
+Innovation: 
+
+https://time.com/collection/best-inventions-2023/6323169/duolingo-music/
+
+Look-alike data: 
+
+https://www.statista.com/statistics/1309604/duolingo-quarterly-dau/
